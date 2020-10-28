@@ -1,0 +1,173 @@
+---
+title: "STAT435_HW2"
+author: "Liyuan Tang"
+date: "4/19/2020"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Question 1
+\textbf{1.1} 
+```{r 1a}
+library(ISLR)
+#View(Auto)
+lm.fit = lm(mpg~ cylinders+displacement+horsepower+weight+acceleration+year+factor(origin), data = Auto[, -9])
+summary(lm.fit)
+```
+For the first column 'Estimate', it means the change in mpg with increaing 1 unit of the corresponding variable and holding all other variables fixed. The 'Intercept' means that the expected mean mpg for a US car is -17.95 when all other variables are 0. On average, the mpg of a car made in Europe is 2.63 higher than a US car and the mpg of a car made in Japan is 2.853 higher than a US car when holding all other variables fixed. 
+
+For 'displacement', 'weight', 'year', 'orgin' and 'Intercept', we can reject the null hypothesis that there is no linear association
+between that predictor and gas mileage on the 0.05 significance level.
+
+
+
+\textbf{1.2}
+```{r 1b}
+mpg_pred = predict(lm.fit, newdata = Auto[, c(-1, -9)])
+res.mse = sum((mpg_pred - Auto$mpg)^2) / length((mpg_pred))
+cat('The resubstitution mean square error of this model is' , res.mse)
+```
+
+
+
+\textbf{1.3}
+```{r 1c}
+newdata = data.frame(cylinders = 3, displacement = 100, horsepower = 85, weight = 3000, acceleration = 20, year = 80, origin = 3)
+mpg.predict = predict(object = lm.fit, newdata)
+cat('The predicted gas mileage is', mpg.predict)
+```
+
+
+\textbf{1.4}
+```{r 1d}
+cat('The difference between the mpg of a Japanese car and the mpg of an American car is', coef(lm.fit)["factor(origin)3"])
+```
+
+
+
+\textbf{1.5}
+```{r 1e}
+cat('The change in mpg associated with a 10-unit change in horsepower is', 10*lm.fit$coefficients[4])
+```
+
+## Question 2
+\textbf{2.1}
+```{r 2a}
+ame = ifelse(Auto$origin == 1, 1, 0)
+eur = ifelse(Auto$origin == 2, 1, 0)
+lm2.fit = lm(mpg~ ame + eur, data = Auto)
+pred.jap = lm2.fit$coefficients[1]
+pred.ame = lm2.fit$coefficients[1] + lm2.fit$coefficients[2]
+pred.eur = lm2.fit$coefficients[1] + lm2.fit$coefficients[3]
+print(lm2.fit$coefficients)
+```
+$y_i = \beta_0 + \beta_1 x_{i1} + \beta_2x_{i2} +\epsilon_i$. 
+
+$\hat{\beta_0} =$ `r lm2.fit$coefficient[1]`, $\hat{\beta_1} =$ `r lm2.fit$coefficient[2]`,  $\hat{\beta_2} =$ `r lm2.fit$coefficient[3]`. 
+
+If the car is made in US $x_{i1} = 1$, $x_{i2} = 0$. If the car is made in Europe $x_{i1} = 0$, $x_{i2} = 1$. If the car is made in Japan $x_{i1} = 0$, $x_{i2} = 0$.
+
+The predicted mpg for a Japanese car is `r pred.jap`. The predicted mpg for a American car is `r pred.ame`. The predicted mpg for a European car is `r pred.eur`.
+
+
+\textbf{2.2}
+```{r 2.2}
+jap = ifelse(Auto$origin == 3, 1, 0)
+lm3.fit = lm(mpg~ jap + eur, data = Auto)
+pred.ame = lm3.fit$coefficients[1]
+pred.jap = lm3.fit$coefficients[1] + lm3.fit$coefficients[2]
+pred.eur = lm3.fit$coefficients[1] + lm3.fit$coefficients[3]
+print(lm3.fit$coefficients)
+```
+$y_i = \beta_0 + \beta_1 x_{i1} + \beta_2x_{i2} +\epsilon_i$. 
+
+$\hat{\beta_0} =$ `r lm3.fit$coefficient[1]`, $\hat{\beta_1} =$ `r lm3.fit$coefficient[2]`,  $\hat{\beta_2} =$ `r lm3.fit$coefficient[3]`. 
+
+If the car is made in US $x_{i1} = 0$, $x_{i2} = 0$. If the car is made in Europe $x_{i1} = 0$, $x_{i2} = 1$. If the car is made in Japan $x_{i1} = 1$, $x_{i2} = 0$.
+
+The predicted mpg for a Japanese car is `r pred.jap`. The predicted mpg for a American car is `r pred.ame`. The predicted mpg for a European car is `r pred.eur`.
+
+
+\textbf{2.3}
+```{r 2.3}
+ame = ifelse(Auto$origin == 1, 1, -1)
+eur = ifelse(Auto$origin == 2, 1, -1)
+lm4.fit = lm(mpg~ ame + eur, data = Auto)
+pred.jap = lm4.fit$coefficients[1] - lm4.fit$coefficients[2] - lm4.fit$coefficients[3]
+pred.ame = lm4.fit$coefficients[1] + lm4.fit$coefficients[2] - lm4.fit$coefficients[3]
+pred.eur = lm4.fit$coefficients[1] - lm4.fit$coefficients[2] + lm4.fit$coefficients[3]
+print(lm4.fit$coefficients)
+```
+$y_i = \beta_0 + \beta_1 x_{i1} + \beta_2x_{i2} +\epsilon_i$. 
+
+$\hat{\beta_0} =$ `r lm4.fit$coefficient[1]`, $\hat{\beta_1} =$ `r lm4.fit$coefficient[2]`,  $\hat{\beta_2} =$ `r lm4.fit$coefficient[3]`. 
+
+If the car is made in US $x_{i1} = 1$, $x_{i2} = -1$. If the car is made in Europe $x_{i1} = -1$, $x_{i2} = 1$. If the car is made in Japan $x_{i1} = -1$, $x_{i2} = -1$.
+
+The predicted mpg for a Japanese car is `r pred.jap`. The predicted mpg for a American car is `r pred.ame`. The predicted mpg for a European car is `r pred.eur`.
+
+
+\textbf{2.4}
+```{r 2.4}
+new.origin = Auto$origin
+new.origin[new.origin == 3] = 0
+lm5.fit = lm(mpg ~ new.origin, data = Auto)
+pred.jap = lm5.fit$coefficients[1]
+pred.ame = lm5.fit$coefficients[1] + lm5.fit$coefficients[2]
+pred.eur = lm5.fit$coefficients[1] + 2 * lm5.fit$coefficients[2]
+print(lm5.fit$coefficients)
+```
+$y_i = \beta_0 + \beta_1 x_{i1} +\epsilon_i$. 
+
+$\hat{\beta_0} =$ `r lm4.fit$coefficient[1]`, $\hat{\beta_1} =$ `r lm4.fit$coefficient[2]`.
+
+If the car is made in US $x_{i1} = 1$. If the car is made in Europe $x_{i1} = 2$. If the car is made in Japan $x_{i1} = 0$.
+
+The predicted mpg for a Japanese car is `r pred.jap`. The predicted mpg for a American car is `r pred.ame`. The predicted mpg for a European car is `r pred.eur`.
+
+
+\textbf{2.5}
+
+The first three models give the same predicted mpg even the functions are different. But the last one is different. So when we use two dummy variables to build the model, we will always get the same predicted value no matter what default value we chose.
+
+
+## Question 3
+
+\textbf{3.1}
+```{r 3.1}
+h1 = -165.1 + 4.8 * 64
+cat('The weight is', h1)
+```
+
+
+\textbf{3.2}
+
+$\beta^*_0 = \beta_0 = -165.1$, $\beta^*_1 = \hat{\beta_1} * 12 = 4.8 * 12 = 57.6$. The weight is still 142.1, as the previous model. 
+
+\textbf{3.3}
+
+$Y = \beta_0 + \beta_1X_1 + \beta_2X_2 + \epsilon$
+
+$= \beta_0 + \beta_1X_1 + \beta_2 \frac{1}{12}X_1 + \epsilon$
+
+$= \beta_0 + (\beta_1 + \frac{1}{12}\beta_2)X_1 + \epsilon$
+
+Thus, the general expression should be $\beta_1 + \frac{1}{12}\beta_2 = 4.8, \beta_0 = -165.1$
+
+\textbf{3.4}
+
+The mean squared errors for three models should be the same. 
+
+
+
+
+
+
+
+
+
+
+

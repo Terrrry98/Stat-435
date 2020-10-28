@@ -1,0 +1,111 @@
+---
+title: "HW4"
+author: "Liyuan Tang"
+date: "5/17/2020"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Question 2
+Based on algorithm 8.2, we first set $\hat{f}(x) = 0$ and $r_i = y_i$ for all i in the training set. And each time, we will update $\hat{f}(x)$ as $\hat{f}(x) + \lambda \hat{f}^b(x)$
+
+So, the output of the boosted model is $\hat{f}(x) = \sum_{b=1}^{B}\lambda \hat{f}^b(x)$. Every $\hat{f}^b(x)$ is fitted by a depth-one tree, we will get 1 split and 2 terminal nodes. And $\hat{f}^b(x) = c_1I(x_b<t)$. Since the split only depends on one predictor, the summation of $\hat{f}^b(x)$ is additive. 
+
+
+
+
+## Question 4
+See the picture below
+```{r,message=FALSE, warning=FALSE, out.width = '50%', echo=FALSE}
+library(knitr)
+include_graphics("D:/hw/q4.jpg")
+```
+
+
+
+## Question 8
+(b)
+```{r, 8b}
+source('Carseats-split.r')
+library(tree) 
+tree.carseats=tree(Sales~., data = Carseats.train)
+plot(tree.carseats)
+text(tree.carseats,pretty=0)
+summary(tree.carseats)
+
+# test MSE
+pred.val = predict(tree.carseats, newdata = Carseats.test)
+t.mse = sum((Carseats.test$Sales - pred.val)^2) / length(pred.val)
+```
+The test MSE is `r t.mse`. 'ShelveLoc' is the most important factor in determining 'Sales'. In this graph, it shows that a good quality of shelving location for the car seats at each site has more unit sales comparing to the bad or medium shelving location. Then, if the child car seats have equal quality of shelving location, the price will affect the number of unit sales.
+
+
+For part (c), (d) and (e), I used set.seed(1)
+
+(c)
+```{r, 8c}
+set.seed(1)
+cv.carseats <- cv.tree(tree.carseats)
+plot(cv.carseats$size,cv.carseats$dev,type='b')
+tree.opt = cv.carseats$size[which.min(cv.carseats$dev)]
+
+# Pruning the tree
+prune.carseats=prune.tree(tree.carseats,best=tree.opt)
+pred.val.improved = predict(prune.carseats, newdata = Carseats.test)
+t.mse.improved = sum((Carseats.test$Sales - pred.val.improved)^2) / length(pred.val.improved)
+```
+The optimal level of tree complexity is `r tree.opt`. The improved test MSE is `r t.mse.improved`. It does not improve the test MSE. 
+
+(d)
+```{r, 8d, message=FALSE, warning=FALSE}
+library(randomForest)
+set.seed(1)
+bag.carseats = randomForest(Sales~., data = Carseats.train, mtry = 10, importance = T)
+plot(bag.carseats)
+bag.pred = predict(bag.carseats, newdata = Carseats.test)
+bag.mse = sum((Carseats.test$Sales - bag.pred)^2) / length(bag.pred)
+
+# importance function
+importance(bag.carseats)
+```
+The test MSE is `r bag.mse`. 'Price' and 'ShelveLoc' are the most important variables.
+
+(e)
+```{r 8e}
+set.seed(1)
+rf.mse.m = numeric(10)
+for (m in 1:10) {
+  rf.carseats = randomForest(Sales~., data = Carseats.train, mtry = m, importance = T)
+  rf.pred = predict(rf.carseats, newdata = Carseats.test)
+  rf.mse.m[m] = mean((Carseats.test$Sales - rf.pred)^2)
+}
+plot(rf.mse.m)
+set.seed(1)
+rf.carseats = randomForest(Sales~., data = Carseats.train, mtry = 3, importance = T)
+rf.pred = predict(rf.carseats, newdata = Carseats.test)
+rf.mse = mean((Carseats.test$Sales - rf.pred)^2)
+importance(rf.carseats)
+```
+The test MSE by the random forest is `r rf.mse`. 'Price' and 'ShelveLoc' are the most important variables. From the graph we can see as m increases, the test MSE will decrease dramatically when reaching 3. But as m continues increasing, the rate of change decreases. We can also see a fluctuation of MSE when m is between 6 and 10.  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

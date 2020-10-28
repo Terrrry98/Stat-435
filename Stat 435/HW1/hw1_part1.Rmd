@@ -1,0 +1,262 @@
+---
+title: "STAT435_HW1"
+author: "Liyuan Tang"
+date: "4/10/2020"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Part 1
+(A)
+```{r}
+source("home1-part1-data.R")
+ksmooth.train <- function(x.train, y.train, kernel = c("box", "normal"),
+bandwidth = 0.5, CV = False) {
+  yhat.train <- list(rep(0, length(x.train)))
+  if (kernel == "normal") {
+    # find sigma
+    sig = -0.25* bandwidth / qnorm(0.25, 0, 1)
+    for (i in 1:length(x.train)) {
+      x_curr = x.train[i]
+      y_curr = y.train[i]
+      y_abv = 0
+      y_btm = 0
+      for (j in 1:length(x.train)) {
+        # if cv=T, i should not be used.
+        if ( (CV & i!=j) | (!CV) ) {
+          y_abv = y_abv + y.train[j] * dnorm(x_curr - x.train[j], 0, sig)
+          y_btm = y_btm + dnorm(x_curr - x.train[j], 0, sig)
+        }
+      }
+      yhat.train[i] = y_abv / y_btm
+    }
+  } else {
+    #box kernel
+    for (i in 1:length(x.train)) {
+      total = c()
+      for (j in 1:length(x.train)) {
+        if ( ((!CV) | (CV & j!=i)) & abs(x.train[i] - x.train[j]) <= 0.5*bandwidth) {
+          total = c(total, y.train[j])
+        }
+      }
+      yhat.train[i] = sum(total) / length(total)
+    }
+  }
+  yhat.train = unlist(yhat.train)
+  df = data.frame(x.train, yhat.train)
+}
+```
+
+
+(B)
+```{r}
+ksmooth.predict <- function(ksmooth.train.out, x.query) {
+  x = ksmooth.train.out$x.train
+  y = ksmooth.train.out$yhat.train
+  x_min = min(x)
+  x_max = max(x)
+  y_min = y[match(x_min, x)]
+  y_max = y[match(x_max, x)]
+  y_predict = c()
+  for (i in x.query) {
+    if (i >= x_min & i <= x_max) {
+      # linear interpolate
+      y_predict = c(y_predict, approx(x, y, xout = i, method = "linear")$y)
+    } else {
+      #constant extrapolate
+      if (i < x_min) {
+        y_predict = c(y_predict, y_min)
+      } else {
+        y_predict = c(y_predict, y_max)
+      }
+    }
+  }
+  return(data.frame(x.query, y_predict))
+}
+```
+
+(C)
+```{r}
+wage.train = Wage.train$wage
+age.train = Wage.train$age
+plot(age.train, wage.train)
+ksmooth.train.out = ksmooth.train(age.train, wage.train, "normal", 3, FALSE)
+result_df = ksmooth.train.out[order(ksmooth.train.out[,1]),]
+lines(result_df$x.train, result_df$yhat.train,lwd = 3, col = 'red')
+
+# Calculate residual sum of squares
+origin_df = data.frame(age.train, wage.train)
+origin_df = origin_df[order(origin_df[,1]),]
+
+rss = sum((origin_df$wage.train - result_df$yhat.train)^2)
+cat("the residual sum of squares is", rss)
+# 1625120.9467
+
+```
+
+
+(D)
+```{r, warning=FALSE}
+wage.test = Wage.test$wage
+age.test = Wage.test$age
+wage.predict = ksmooth.predict(result_df,age.test)
+plot(age.test, wage.test)
+predict_df = data.frame(age.test, wage.predict$y_predict)
+predict_df = predict_df[order(predict_df[,1]),]
+lines(predict_df, lwd = 3, col = "blue")
+
+# Calculate residual sum of squares
+origin_df = data.frame(age.test, wage.test)
+origin_df = origin_df[order(origin_df[,1]),]
+
+rss = sum((origin_df$wage.test - predict_df$wage.predict)^2)
+cat("the residual sum of squares is", rss)
+# 3168000.16699
+```
+
+(E)
+```{r}
+bd = seq(1, 10, 1)
+ese_train = c()
+for (i in bd) {
+  train_df = ksmooth.train(age.train, wage.train, "normal", i, FALSE)
+  ese_train = c(ese_train, sum((train_df$yhat.train-wage.train)^2) / length(wage.train))
+}
+plot(bd, ese_train)
+print(ese_train)
+```
+
+(F)
+```{r}
+ese_cv = c()
+for (i in bd) {
+  train_df = ksmooth.train(age.train, wage.train, "normal", i, TRUE)
+  ese_cv = c(ese_cv, sum((train_df$yhat.train-wage.train)^2) / length(wage.train))
+}
+plot(bd, ese_cv)
+print(ese_cv)
+hopt = match(min(ese_cv), ese_cv)
+cat(hopt, "is the bandwidth I would choose")
+```
+
+(G)
+```{r, warning=FALSE}
+ese_test = c()
+for (i in bd) {
+  train_df = ksmooth.train(age.train, wage.train, "normal", i, FALSE)
+  wage.predict = ksmooth.predict(train_df,age.test)
+  ese_test = c(ese_test, sum((wage.predict$y_predict-wage.test)^2) / length(wage.test))
+}
+plot(bd, ese_test)
+print(ese_test)
+```
+
+(H)
+```{r, warning=FALSE}
+ese_fold = c()
+k = 5
+for (i in bd) {
+  ese_kfold = c()
+  for (j in 1:k) {
+    age.test = Wage.train$age[which(fold == j)]
+    age.train = Wage.train$age[-which(fold == j)]
+    wage.test = Wage.train$wage[which(fold == j)]
+    wage.train = Wage.train$wage[-which(fold == j)]
+    smooth_df = ksmooth.train(age.train, wage.train, "normal", i, FALSE)
+    predict_wage = ksmooth.predict(smooth_df, age.test)
+    ese_kfold = c(ese_kfold, sum((predict_wage$y_predict - wage.test)^2)/length(wage.test))
+  }
+  ese_fold[i] = sum(ese_kfold) / k
+}
+plot(bd, ese_fold)
+print(ese_fold)
+
+
+```
+
+## Part 2
+
+(A)
+Notice that $\hat{\mathbf{f}} = \mathbf{Wy} = \mathbf{W(f + \epsilon)}$
+
+  D = $E(\frac{1}{n} ||\mathbf{f} - \hat{\mathbf{f}}||^2)$
+  
+  = $\frac{1}{n}E(\mathbf{(f - \hat{f})^T(f - \hat{f})})$
+  
+  = $\frac{1}{n}E(\mathbf{f^Tf - 2f^T\hat{f} + \hat{f}^T \hat{f}})$
+  
+  = $\frac{1}{n}E(\mathbf{f^Tf - 2f^TW(f+\epsilon) + (f^T + \epsilon^T)W^T W(f + \epsilon)})$
+  
+  = $\frac{1}{n}E(\mathbf{f^Tf - 2f^TWf + f^TW^TWf}) + \frac{1}{n}E(\mathbf{\epsilon^TW^TW\epsilon}) - \frac{2}{n}E(\mathbf{f^TW\epsilon}) + \frac{2}{n}E(\mathbf{f^TW^TW\epsilon})$
+  
+  Consider $E(\mathbf{f^TW\epsilon})$. Define $V = \mathbf{f^TW}$, so $E(\mathbf{f^TW\epsilon}) =E(V\epsilon) =  E(\sum_{i} V_i\epsilon_i) = 0$ due to the linearity. And similar for the $E(\mathbf{f^TW^TW\epsilon})$.
+  
+  So D = $\frac{1}{n}(E(\mathbf{f^TW^TWf - 2f^TWf + f^Tf}) + E(\mathbf{\epsilon^TW^TW\epsilon}))$
+  
+  = $\frac{1}{n}(||\mathbf{Wf - f}||^2 + E(\mathbf{\epsilon^TW^TW\epsilon}))$
+  
+  = $\frac{1}{n}(||\mathbf{(W-I) f}||^2 + E(\mathbf{\epsilon^TW^TW\epsilon}))$
+  
+  Set the vector $Y = W\epsilon$. Then $E(\mathbf{\epsilon^TW^TW\epsilon}) = E(Y^TY) = E(\sum_{i=1}^{n}Y_i^2) = \sum_{i=1}^{n}E(Y_i^2) = \sum_{i=1}^{n}Var(Y_i) = \sum_{i=1}^{n}\sum_{j=1}^{n}\mathbf{W}_{ij}^2\sigma^2 = \sigma^2\mathbf{trace(W^TW)}$
+  
+  Thus, D = $\frac{1}{n}(||\mathbf{(W-I) f}||^2 + \sigma^2\mathbf{trace(W^TW)})$
+
+(B)
+```{r, fig.height = 4.1, fig.width = 5}
+source("home1-part2-data.R")
+sig_vec = seq(from = 0.01, to = 2, by = 0.01)
+n = length(x.train)
+bias.vec = numeric(n)
+var.vec = numeric(n)
+
+
+for (k in 1:length(sig_vec)) {
+  sig = sig_vec[k]
+  # W matrix
+  W.matrix = matrix(data = NA, nrow = n, ncol = n)
+  for (i in 1:n) {
+    bt = sum(dnorm(x.train[i] - x.train, 0 , sig))
+    for (j in 1:n) {
+      W.matrix[i,j] = dnorm(x.train[i] - x.train[j], 0, sig) / bt
+    }
+  }
+  
+  # bias
+  bias.mat = (W.matrix - diag(1,n,n)) %*% f
+  bias.vec[k] = norm(x = bias.mat, type = "2")^2 / n
+  
+  # variance
+  var.vec[k] = sum(diag(t(W.matrix) %*% W.matrix)) * noise.var / n
+}
+plot(sig_vec, bias.vec + var.vec, xlab = "sigma", ylab = "sum of bias and variance")
+plot(sig_vec, bias.vec, xlab = "sigma", ylab = "bias")
+plot(sig_vec, var.vec, xlab = "sigma", ylab = "variance")
+
+D = bias.vec + var.vec
+sig_opt = sig_vec[which(D == min(D))]
+cat("The optimal choice of sigma is", sig_opt)
+```
+
+(C)
+```{r}
+
+
+W.matrix = matrix(data = NA, nrow = n, ncol = n)
+for (i in 1:n) {
+  bt = sum(dnorm(x.train[i] - x.train, 0 , sig_opt))
+  for (j in 1:n) {
+    W.matrix[i,j] = dnorm(x.train[i] - x.train[j], 0, sig_opt) / bt
+  }
+}
+fhat = W.matrix %*% y.train
+plot(x.train, y.train)
+lines(x.train, f,lwd = 2, col = "red")
+lines(x.train, fhat, lwd = 2, col = "blue")
+legend(1, -3, legend=c("f", "fhat"),
+       col=c("red", "blue"), lty=c(1,1), lwd = 2)
+```
+
+

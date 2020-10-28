@@ -1,0 +1,14 @@
+---
+title: "STAT435_HW1_part2"
+author: "Liyuan Tang"
+date: "4/12/2020"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+
+
